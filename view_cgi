@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use CGI qw/:standard/;
+use DBI;
+
+#Author: Rebecca Allan
+#Course Number: BIF806
+#Purpose: This table is meant to display the data directly from the MySQL
+#database. This is done after retrieving the data from the database by
+#connecting to the MySQL server and selecting the desired data from various
+#tables. This table can be added to by clicking the link at the bottom of the
+#table and filling out the form.
+
+#URL: zenit.senecac.on.ca/~bif712_143a03/igp_view.cgi
+
+#I declare that the attached assignment is wholly my own work in accordance with
+#Seneca Academic Policy. No part of this assignment has been copied manually or
+#electronically from any other source (including web sites) or distributed to
+#other students.
+#Name: Rebecca K. Allan
+#ID: 022914147
+
+#Display the header of the website
+print "Content-type: text/html\n\n";
+print start("DyNAmic Viewer");
+print form_header("DyNAmic Viewer");
+
+#Connect to database and acquire desired data from the database to put into a table
+my $dbh = DBI->connect("DBI:mysql:host=db-mysql;database=bif712_143a03", "bif712_143a03", "qhBQ5335") or die $!;
+my $x = "SELECT * FROM ORGANISM_GENE ORDER BY organism_id ASC";
+my $y = $dbh->prepare($x) or die $!;
+my $z = $y->execute() or die $!;
+
+#Display the table with different colours per row
+print "<center><table border='1'>";
+print "<tr style='background:#E6E6E6'><th>Organism ID</th><th>Organism Name</th><th>Strain</th><th>Gene Sequence ID</th><th>Gene Name/Genome</th><th>Gene Sequence File Name</th></tr>";
+print "<tr></tr>";
+
+my $colour;
+my $count = 0;
+
+#Fill table with data from database
+if ($z > 0) {
+    while (my @column = $y->fetchrow_array) {
+        if ($count % 2 ==0) {
+            $colour = '#CEE3F6';
+        } else {
+            $colour = '#D8CEF6';
+        }
+        $count++;
+        print "<tr style='background:$colour'><td>$column[0]</td><td>$column[1]</td><td>$column[2]</td><td>$column[3]</td><td>$column[4]</td><td>$column[5]</td></tr>";
+    }
+} else {
+    print "No data found \n";
+}
+
+#Disconnect from the database
+$dbh->disconnect() or die $!;
+
+#Display a link to the form to add data to the database
+print "</table>";
+print "<p>Click <a href='http://zenit.senecac.on.ca/~bif712_143a03/igp_add.cgi'>here</a> to DyNAmically View an organism from the database.";
+print end();
+
+#Subroutine to begin HTML code
+sub start {
+    return <<HEADER;
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>$_[0]</title>
+    </head>
+    <body>
+HEADER
+}
+
+#Subroutine to add header
+sub form_header {
+    return <<HEAD
+    <b><center><font size='10'>$_[0]</font></center></b><p>
+HEAD
+}
+
+#Subroutine to end HTML code
+sub end {
+    return <<ENDER;
+    </body>
+</html>
+ENDER
+}
