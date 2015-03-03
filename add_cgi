@@ -1,0 +1,162 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use CGI qw/:standard/;
+use DBI;
+
+#Author: Rebecca Allan
+#Course Number: BIF806
+#Purpose: This form is meant to add data directly to the MySQL database. When
+#the form is filled out, the data entered is checked for its validity.  If the
+#data is considered valid, it is entered into the database.  The database can be
+#viewed by clicking the link below the form.
+
+#URL: zenit.senecac.on.ca/~bif712_143a03/igp_add.cgi
+
+if (param()) {
+#    #If there is data in the form, test it for its validity
+    my $organism_type = param('organism_type');
+    my $strain = param('strain_name');
+    my $gene_id = param('gene_id');
+    my $threshold = param('threshold');
+    my $human_filter = param('humangen');
+  
+#    #An array filled when an error is found with corresponding error messages
+    my @err_message;
+   
+#    #The organism type must be selected from the drop-down table
+    if ($organism_type <= 0 || $organism_type >= 128) {
+        push @err_message, "<b>Error!</b> You must select a valid organism type.<br>";
+    }
+    
+#    #The strain name must be 1 to 30 characters long and only contain letters, numbers or hyphens (cannot start or end with hyphen)
+    if ($strain !~ /.{1,30}/) {
+        push @err_message, "<b>Error!</b> You must enter a strain name that is between 1 and 30 characters long.<br>";
+    } elsif ($strain !~ /[A-z\-\0-9]+/) {    
+        push @err_message, "<b>Error!</b> You must enter a strain name that contains only letters, numbers or hyphens.<br>";
+    } elsif ($strain =~ /^[\-]|[\-]$/) {
+        push @err_message, "<b>Error!</b> You must enter a strain name that does not start or end with a hyphen.<br>";  
+    }
+    
+#    #The gene ID must contain only numbers and be less than 10 000
+    if ($gene_id !~ /^[1-9][0-9]*$/) {
+        push @err_message, "<b>Error!</b> You must enter a gene ID number greater than zero with no decimals.<br>";
+    } elsif ($gene_id > 10000) {
+        push @err_message, "<b>Error!</b> You must enter a gene ID less than 10 000.<br>";
+    }
+    
+#    #The threshold must contain only numbers and be in the 1 to 100 range
+    if ($threshold !~ /^[1-9][0-9]*$/) {
+        push @err_message, "<b>Error!</b> You must enter a threshold percentage greater than zero with no decimals.<br>";
+    } elsif ($threshold > 100) {
+        push @err_message, "<b>Error!</b> You must enter a threshold percentage less than 100.<br>";
+    }
+
+#    #The human genome filter must be selected to either "yes" or "no"
+    if ($human_filter eq '') {
+        push @err_message, "<b>Error!</b> You must select if you want to use the human genome filter or not.<br>";
+    }
+    
+    if (@err_message > 0) {
+        #If there is an error message, reprint the form with the error messages above it
+        print "Content-type: text/html\n\n";
+        print start("DyNAmic Viewer");
+        print form_header("DyNAmic Viewer");
+        push @err_message, "<br>";
+        print "<center>@err_message</center>";
+        print my_form();
+    } else {
+        #If there are no error messages, enter the data from the form into the database
+#        my $dbh = DBI->connect("DBI:mysql:host=db-mysql;database=bif712_143a03", "bif712_143a03", "qhBQ5335") or die $!;
+#        my $x = "INSERT INTO sample VALUES ('',?,?,?,?)";
+#        my $y = $dbh->prepare($x) or die $!;
+#        my $z = $y->execute($tissue_type,$cell_count,$surname,$student) or die $!;
+        print "Location: http://zenit.senecac.on.ca/~bif712_143a03/igp_view.cgi\n\n";
+#        $dbh->disconnect() or die $!;
+    }
+} else {
+    #If no data is received, reprint the form
+    print "Content-type: text/html\n\n";
+    print start("DyNAmic Viewer");
+    print form_header("DyNAmic Viewer");
+    print my_form();
+}
+
+print "<p><center>Click <a href='http://zenit.senecac.on.ca/~bif712_143a03/igp_view.cgi'>here</a> to view to the database.</center>";
+print end();
+
+#Subroutine to begin HTML code
+sub start {
+    return <<HEADER;
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>$_[0]</title>
+    </head>
+    <body>
+HEADER
+}
+
+#Subroutine to add header
+sub form_header {
+    return <<HEAD
+    <b><center><font size='10'>$_[0]</font></center></b><p>
+HEAD
+}
+
+#Subroutine to make the form presented to the user
+sub my_form {
+    #Use data from the database to create the drop-down menu for tissue type
+    my $org = param('organism_type');
+    my $dbh = DBI->connect("DBI:mysql:host=db-mysql;database=bif712_143a03", "bif712_143a03", "qhBQ5335") or die $!;
+    my $x = "SELECT ORGANISM.organism_id, ORGANISM.organism_name FROM ORGANISM";
+    my $y = $dbh->prepare($x) or die $!;
+    my $z = $y->execute() or die $!;
+    
+    my @organism_form;
+    $organism_form[0] = "<select name='organism_type'><option value='0'>Choose a type </option>";
+    if ($z > 0) {
+        while (my @column = $y->fetchrow_array) {
+            if ($column[0] == $org) {
+                #If the tissue type parameter has a number associated with it, select the option with the
+                #associated number
+                push @organism_form, "<option value=$column[0] selected='selected'>$column[1] </option>";
+            } else {
+                push @organism_form, "<option value=$column[0]>$column[1] </option>";
+            }
+        }
+    }
+    push @organism_form, "</select>";
+    
+    #If a strain name has been inputted in the form, keep that string
+    my $str = param('strain_name');
+    
+    #If a gene ID has been inputted in the form, keep that number
+    my $gid = param('gene_id');
+    
+    #If a cell count number is already inputted in the form by the user, keep that number
+    my $thr = param('threshold');
+
+    #The template for the form
+    return <<FORM;
+    <center><table border=0>
+        <form method='post'>
+            <tr><td>Organism Name: </td><td>@organism_form</td><td><b>AND</b></td>
+            <td>Strain: </td><td><input type='text' name='strain_name' value='$str'></td></tr>
+            <td></td><td></td><td><b>OR</b></td><td>Gene ID: </td><td><input type='text' name='gene_id' value='$gid'></td></tr>
+            <tr><td>Threshold: </td><td><input type='text' name='threshold' value='$thr'> % </td></tr>
+            <tr><td>Human Genome Filter: </td><td><input type='radio' name='humangen' value='y'>Yes
+                                         <input type='radio' name='humangen' value='n'>No </td></tr>
+            <tr><td></td><td><input type='submit'></td></tr>
+        </form>
+    </table></center>
+FORM
+}
+
+#Subroutine to end HTML code
+sub end {
+    return <<ENDER;
+    </body>
+</html>
+ENDER
+}
